@@ -66,13 +66,17 @@ def reddit_search(state: State):
 
     return {"reddit_results": reddit_results}
 
+# ---- ANALYSIS FUNCTIONS ----
+
 def analyze_reddit_posts(state: State):
+    # Selects the most relevant Reddit URLs
     user_question = state.get("user_question", "")
     reddit_results = state.get("reddit_results", "")
 
     if not reddit_results:
         return {"selected_reddit_urls": []}
 
+    # Structured output ensures the LLM returns valid JSON matching RedditURLAnalysis
     structured_llm = llm.with_structured_output(RedditURLAnalysis)
     messages = get_reddit_url_analysis_messages(user_question, reddit_results)
 
@@ -115,6 +119,7 @@ def retrieve_reddit_posts(state: State):
 def analyze_google_results(state: State):
     print("Analyzing google search results")
 
+    # Asks the LLM to interpret and summarize Google search results
     user_question = state.get("user_question", "")
     google_results = state.get("google_results", "")
 
@@ -137,6 +142,7 @@ def analyze_bing_results(state: State):
 
 
 def analyze_reddit_results(state: State):
+    # Combines Reddit question, results and post data into one analysis
     print("Analyzing reddit search results")
 
     user_question = state.get("user_question", "")
@@ -150,6 +156,7 @@ def analyze_reddit_results(state: State):
 
 
 def synthesize_analyses(state: State):
+    # Combines all analyses (Google, Bing, Reddit) into a final, unified answer
     print("Combine all results together")
 
     user_question = state.get("user_question", "")
@@ -166,8 +173,13 @@ def synthesize_analyses(state: State):
 
     return {"final_answer": final_answer, "messages": [{"role": "assistant", "content": final_answer}]}
 
+
+# ---- BUILD GRAPH ----
+
+# The graph defines how data flows between each step of the research process.
 graph_builder = StateGraph(State)
 
+# Steps
 graph_builder.add_node("google_search", google_search)
 graph_builder.add_node("bing_search", bing_search)
 graph_builder.add_node("reddit_search", reddit_search)
@@ -178,27 +190,33 @@ graph_builder.add_node("analyze_bing_results", analyze_bing_results)
 graph_builder.add_node("analyze_reddit_results", analyze_reddit_results)
 graph_builder.add_node("synthesize_analyses", synthesize_analyses)
 
+# Start → run searches in parallel
 graph_builder.add_edge(START, "google_search")
 graph_builder.add_edge(START, "bing_search")
 graph_builder.add_edge(START, "reddit_search")
 
+# After searches, select Reddit URLs
 graph_builder.add_edge("google_search", "analyze_reddit_posts")
 graph_builder.add_edge("bing_search", "analyze_reddit_posts")
 graph_builder.add_edge("reddit_search", "analyze_reddit_posts")
 graph_builder.add_edge("analyze_reddit_posts", "retrieve_reddit_posts")
 
+# Then analyze search results and Reddit data
 graph_builder.add_edge("retrieve_reddit_posts", "analyze_google_results")
 graph_builder.add_edge("retrieve_reddit_posts", "analyze_bing_results")
 graph_builder.add_edge("retrieve_reddit_posts", "analyze_reddit_results")
 
+# Synthesize everything into one response
 graph_builder.add_edge("analyze_google_results", "synthesize_analyses")
 graph_builder.add_edge("analyze_bing_results", "synthesize_analyses")
 graph_builder.add_edge("analyze_reddit_results", "synthesize_analyses")
 
 graph_builder.add_edge("synthesize_analyses", END)
 
+# Makes the workflow ready to run
 graph = graph_builder.compile()
 
+# ---- MAIN LOOP ----
 def run_chatbot():
     print("Multi-Source Research Agent")
     print("Type 'exit' to quit\n")
