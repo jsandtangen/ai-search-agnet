@@ -16,8 +16,10 @@ from prompts import (
 
 load_dotenv()
 
+# Large language model
 llm = init_chat_model("gpt-4o")
 
+# Structure passed between nodes
 class State(TypedDict):
     messages: Annotated[list, add_messages]
     user_question: str | None
@@ -34,10 +36,14 @@ class State(TypedDict):
 class RedditURLAnalysis(BaseModel):
     selected_urls: List[str] = Field(description="List of Reddit URLs that contain valuable information for answering the user's question")
 
+
+# ---- SEARCH FUNCTIONS ----
+
 def google_search(state: State):
     user_question = state.get("user_question", "")
     print(f"Searching Google for: {user_question}")
 
+    # Run a Google SERP search using the helper function
     google_results = serp_search(user_question, engine="google")
 
     return {"google_results": google_results}
